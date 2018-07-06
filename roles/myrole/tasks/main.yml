@@ -12,3 +12,104 @@
 
 - debug:
     msg: "Your favorite color is {{ favorite_color }}!"
+- name: Install some dependencies
+  apt:
+    name: "{{ item }}"
+    update_cache: yes
+  with_items:
+    - unrar-free
+    - git-core
+    - openssl
+    - libssl-dev
+    - python2.7
+
+- name: Add a user sickrage
+  user:
+    name: sickrage
+    comment: "functional user to run sickrage"
+    system: yes
+    home: "{{ sickrage_user_home_folder }}"
+
+- name: Create folder /opt/sickrage
+  file:
+    path: /opt/sickrage
+    state: directory
+    owner: sickrage
+    group: sickrage
+    mode: 0755
+
+- name: Download sickrage code
+  git:
+    repo: 'https://github.com/SickRage/SickRage.git'
+    dest: /opt/sickrage
+    version: "{{ sickrage_version }}"
+
+- block:
+
+    - name: Copy systemd config file
+      copy:
+        src: /opt/sickrage/runscripts/init.systemd
+        dest: /etc/systemd/system/sickrage.service
+        remote_src: yes
+        
+    - name: make sure permissions of systemd file are correct
+      file:
+        path: /etc/systemd/system/sickrage.service
+        owner: root
+        group: root
+        mode: 0644
+
+    - name: start and enable the sickrage systemd service
+      systemd:
+        name: sickrage
+        state: started
+        enabled: yes
+        daemon_reload: yes
+
+  when: ansible_service_mgr == 'systemd'
+
+- block:
+
+    - name: Copy sysvinit config file
+      copy:
+        src: /opt/sickrage/runscripts/init.ubuntu
+        dest: /etc/init.d/sickrage
+        remote_src: yes
+
+    - name: make sure permissions of sysvinit file are correct
+      file:
+        path: /etc/init.d/sickrage
+        owner: root
+        group: root
+        mode: 0644
+        
+   - name: start and enable the sickrage sysvinit service
+      service:
+        name: sickrage
+        state: started
+        enabled: yes
+
+  when: ansible_service_mgr == 'sysvinit'
+
+- block:
+
+    - name: Copy Upstart config file
+      copy:
+        src: /opt/sickrage/runscripts/init.upstart
+        dest: /etc/init/sickrage.conf
+        remote_src: yes
+        
+    - name: make sure permissions of Upstart file are correct
+      file:
+        path: /etc/init/sickrage.conf
+        owner: root
+        group: root
+        mode: 0644
+
+    - name: start and enable the Upstart sysvinit service
+      service:
+        name: sickrage
+        state: started
+        enabled: yes
+
+  when: ansible_service_mgr == 'upstart'
